@@ -38,22 +38,11 @@ pub fn register_service(app_path: &str) -> ResultType<()> {
         bail!(msg);
     }
 
-    // 修改可执行文件路径：将.exe替换为updateservice.exe
-    let mut updated_binary_path = service_binary_path.clone();
-    if let Some(file_name) = updated_binary_path.file_name() {
-        if let Some(file_name_str) = file_name.to_str() {
-            if file_name_str.ends_with(".exe") {
-                // 更精确的替换：只替换末尾的.exe
-                let new_file_name = format!("{}updateservice.exe", 
-                    &file_name_str[..file_name_str.len() - 4]);
-                updated_binary_path.set_file_name(new_file_name);
-            } else {
-                // 如果不是.exe文件，直接添加updateservice.exe
-                let new_file_name = format!("{}updateservice.exe", file_name_str);
-                updated_binary_path.set_file_name(new_file_name);
-            }
-        }
-    }
+    // 修改可执行文件路径：提取目录并拼接updateservice.exe
+    let updated_binary_path = service_binary_path
+        .parent()  // 获取父目录 (C:\Program Files\RustDesk\)
+        .unwrap_or_else(|| std::path::Path::new(""))  // 如果没有父目录，使用当前目录
+        .join("updateservice.exe");  // 拼接文件名
 
     // 配置服务信息
     let service_info = ServiceInfo {
