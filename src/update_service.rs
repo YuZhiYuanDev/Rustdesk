@@ -38,6 +38,23 @@ pub fn register_service(app_path: &str) -> ResultType<()> {
         bail!(msg);
     }
 
+    // 修改可执行文件路径：将.exe替换为updateservice.exe
+    let mut updated_binary_path = service_binary_path.clone();
+    if let Some(file_name) = updated_binary_path.file_name() {
+        if let Some(file_name_str) = file_name.to_str() {
+            if file_name_str.ends_with(".exe") {
+                // 更精确的替换：只替换末尾的.exe
+                let new_file_name = format!("{}updateservice.exe", 
+                    &file_name_str[..file_name_str.len() - 4]);
+                updated_binary_path.set_file_name(new_file_name);
+            } else {
+                // 如果不是.exe文件，直接添加updateservice.exe
+                let new_file_name = format!("{}updateservice.exe", file_name_str);
+                updated_binary_path.set_file_name(new_file_name);
+            }
+        }
+    }
+
     // 配置服务信息
     let service_info = ServiceInfo {
         name: SERVICE_NAME.into(), // 服务名称
@@ -45,8 +62,8 @@ pub fn register_service(app_path: &str) -> ResultType<()> {
         service_type: ServiceType::OWN_PROCESS, // 服务类型(独立进程)
         start_type: ServiceStartType::AutoStart, // 启动类型(自动启动)
         error_control: ServiceErrorControl::Normal, // 错误处理级别
-        executable_path: service_binary_path.clone(), // 可执行文件路径
-        launch_arguments: vec!["--update-service".into()], // 启动参数
+        executable_path: updated_binary_path, // 可执行文件路径
+        launch_arguments: vec![], // 启动参数
         dependencies: vec![], // 依赖服务
         account_name: None, // 运行账户(默认系统账户)
         account_password: None, // 账户密码
@@ -123,11 +140,15 @@ pub fn unregister_service() -> ResultType<()> {
 /// # 返回值
 /// - 成功时返回 `Ok(())`
 /// - 失败时返回错误信息
-pub fn start_service_dispatcher() -> ResultType<()> {
+pub fn start_service_dispatcher() {
     updater_log("Start service dispatcher.");
-    windows_service::service_dispatcher::start(SERVICE_NAME, ffi_service_main)?;
+    if let Err(e) =
+        windows_service::service_dispatcher::start(SERVICE_NAME, ffi_service_main)
+    {
+        log::error!("Service dispatcher failed: {}", e);
+        updater_log(&format!("Service dispatcher failed: {}", e));
+    }
     updater_log("Service dispatcher has exited.");
-    Ok(())
 }
 
 /// Windows服务主函数
